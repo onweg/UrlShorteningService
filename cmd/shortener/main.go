@@ -54,10 +54,7 @@ func (m *MemoryStore) Save(url string) (string, error) {
 func (m MemoryStore) isValidUrl(url string) bool {
 	val := URLValidator {URL: url}
 	err := validate.Struct(val)
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func (m *MemoryStore) Get(id string) (string, error) {
@@ -72,7 +69,7 @@ func (m *MemoryStore) Get(id string) (string, error) {
 
 func (m MemoryStore) isValidId(id string) bool {
 	for _, ch := range id {
-		if strings.Contains(alphabetsKey, string(ch)) == false {
+		if !strings.Contains(alphabetsKey, string(ch)) {
 			return false
 		}
 	} 
