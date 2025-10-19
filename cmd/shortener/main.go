@@ -8,15 +8,6 @@ import (
 	"github.com/onweg/UrlShorteningService/internal/service"
 )
 
-type URLStore interface {
-	Save(url string) (string, error)
-	Get(id string) (string, error)
-}
-
-type Server struct {
-	store URLStore
-}
-
 func main() {
 	store := repository.NewMemoryStore()
 	svc := service.NewUrlService(store)
