@@ -8,28 +8,20 @@ import (
 	"github.com/onweg/UrlShorteningService/internal/service"
 )
 
-type URLHandler struct {
-	svc *service.URLService
-}
-
-func NewURLHandler(svc *service.URLService) *URLHandler {
-	return &URLHandler{svc: svc}
-}
-
-func (h *URLHandler) HandleRequest() func(res http.ResponseWriter, req *http.Request) {
+func HandleRequest() func(res http.ResponseWriter, req *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case http.MethodGet:
-			h.handleGet(res, req)
+			handleGet(res, req)
 		case http.MethodPost:
-			h.handlePost(res, req)
+			handlePost(res, req)
 		default:
 			res.Write([]byte("the service supports only GET and POST requests"))
 		}
 	}
 }
 
-func (h *URLHandler) handlePost(res http.ResponseWriter, req *http.Request) {
+func handlePost(res http.ResponseWriter, req *http.Request) {
 	resBody, err := io.ReadAll(req.Body)
 	defer req.Body.Close()
 	if err != nil {
@@ -39,7 +31,7 @@ func (h *URLHandler) handlePost(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	newId, err := h.svc.Shorten(string(resBody))
+	shortUrl, err := service.ShorteningUrl(string(resBody))
 	if err != nil {
 		// не смог сделать ключ, вернуть 500 ошибку
 		res.WriteHeader(http.StatusBadRequest)
@@ -47,20 +39,20 @@ func (h *URLHandler) handlePost(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	outResult := "http://" + req.Host + "/" + newId
+	outResult := "http://" + req.Host + "/" + shortUrl
 	res.Header().Set("Content-Type", "text/plain")
 	res.WriteHeader(http.StatusCreated)
 	res.Write([]byte(outResult))
 }
 
-func (h *URLHandler) handleGet(res http.ResponseWriter, req *http.Request) {
+func handleGet(res http.ResponseWriter, req *http.Request) {
 	keyFindUrl := req.RequestURI[1:]
 	if keyFindUrl == "" {
 		res.Write([]byte("Добро пожаловать!"))
 		return
 	}
 
-	url, err := h.svc.Resolve(keyFindUrl)
+	url, err := service.GetOriginalUrl(keyFindUrl)
 	log.Printf("Get url: %s to key: %s\n", url, keyFindUrl)
 	if err != nil {
 		// некорректный id не нашли по id нужный url, вернуть 400
