@@ -8,25 +8,25 @@ type Storage interface {
 }
 
 type MemoryStorage struct {
-	data map[string]string
+	Data map[string]string
 }
 
 func NewMemoryStorage() *MemoryStorage {
 	return &MemoryStorage{
-		data: make(map[string]string),
+		Data: make(map[string]string),
 	}
 }
 
 func (s *MemoryStorage) Save(key, url string) error {
-	if _, ok := s.data[key]; ok {
+	if _, ok := s.Data[key]; ok {
 		return fmt.Errorf("%s key used", key)
 	}
-	s.data[key] = url
+	s.Data[key] = url
 	return nil
 }
 
 func (s *MemoryStorage) Get(key string) (string, error) {
-	url, ok := s.data[key]
+	url, ok := s.Data[key]
 	if !ok {
 		return "", fmt.Errorf("Not found url by id: %s", url)
 	}

@@ -34,6 +34,7 @@ func (h *Handler) handlePost(res http.ResponseWriter, req *http.Request) {
 	defer req.Body.Close()
 	if err != nil {
 		// не смог прочитать лучше, вернуть 500 ошибку
+		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusBadRequest)
 		log.Printf("couldn't read the request: %s\n", err.Error())
 		return
@@ -42,6 +43,7 @@ func (h *Handler) handlePost(res http.ResponseWriter, req *http.Request) {
 	shortUrl, err := h.urlService.ShorteningUrl(string(resBody))
 	if err != nil {
 		// не смог сделать ключ, вернуть 500 ошибку
+		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusBadRequest)
 		log.Printf("error: %s\n", err.Error())
 		return
@@ -56,7 +58,8 @@ func (h *Handler) handlePost(res http.ResponseWriter, req *http.Request) {
 func (h *Handler) handleGet(res http.ResponseWriter, req *http.Request) {
 	keyFindUrl := req.RequestURI[1:]
 	if keyFindUrl == "" {
-		res.Write([]byte("Добро пожаловать!"))
+		res.Header().Set("Content-Type", "text/plain")
+		res.Write([]byte("Welcom!"))
 		return
 	}
 
@@ -64,11 +67,13 @@ func (h *Handler) handleGet(res http.ResponseWriter, req *http.Request) {
 	log.Printf("Get url: %s to key: %s\n", url, keyFindUrl)
 	if err != nil {
 		// некорректный id не нашли по id нужный url, вернуть 400
+		res.Header().Set("Content-Type", "text/plain")
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	log.Printf("Redirect to url: %s\n", url)
+	res.Header().Set("Content-Type", "text/plain")
 	res.Header().Set("Location", url)
 	http.Redirect(res, req, url, http.StatusTemporaryRedirect)
 }
