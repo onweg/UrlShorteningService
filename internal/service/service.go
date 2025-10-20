@@ -8,9 +8,8 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/onweg/UrlShorteningService/internal/model"
 )
-
-var data map[string]string = make(map[string]string)
 
 const alphabetsKey = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const countLetterInId = 8
@@ -21,33 +20,34 @@ type URLValidator struct {
 	URL string `validate:"required,url"`
 }
 
-func ShorteningUrl(url string) (string, error) {
+type URLService struct {
+	storage model.Storage
+}
+
+func NewURLService(storage model.Storage) *URLService {
+	return &URLService{storage: storage}
+}
+
+func (s *URLService) ShorteningUrl(url string) (string, error) {
 	if !isValidUrl(url) {
 		return "", fmt.Errorf("%s invalid url", url)
 	}
 
 	randKey := getRandString()
-	_, keyUsed := data[randKey]
-	if keyUsed {
-		return "", fmt.Errorf("%s key used", randKey)
+	err := s.storage.Save(randKey, url)
+	if err != nil {
+		return "", err
 	}
 
-	data[randKey] = url
 	log.Printf("Add new url: %s to key: %s\n", url, randKey)
-
 	return randKey, nil
 }
 
-func GetOriginalUrl(shortUrl string) (string, error) {
-	url := ""
+func (s *URLService) GetOriginalUrl(shortUrl string) (string, error) {
 	if !isValidId(shortUrl) {
 		return "", fmt.Errorf("%s invalid id", shortUrl)
 	}
-	url, ok := data[shortUrl]
-	if !ok {
-		return "", fmt.Errorf("Not found url by id: %s", shortUrl)
-	}
-	return url, nil
+	return s.storage.Get(shortUrl)
 }
 
 func isValidUrl(url string) bool {
