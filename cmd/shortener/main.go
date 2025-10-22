@@ -12,10 +12,9 @@ func main() {
 	storage := model.NewMemoryStorage()
     urlService := service.NewURLService(storage)
     h := handler.NewHandler(urlService)
+	r := handler.NewRouter(h)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", h.HandleRequest())
-	err := http.ListenAndServe(":8080", mux)
+	err := http.ListenAndServe(":8080", r)
 	if err != nil {
 		panic(err)
 	}

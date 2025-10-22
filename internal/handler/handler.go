@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/onweg/UrlShorteningService/internal/service"
 )
 
@@ -12,21 +13,15 @@ type Handler struct {
 	urlService *service.URLService
 }
 
-func NewHandler(urlService *service.URLService) *Handler {
-	return &Handler{urlService: urlService}
+func NewRouter(h *Handler) chi.Router {
+	r := chi.NewRouter()
+	r.Get("/{shortUrl}", h.getOriginalHandle)
+	r.Post("/", h.handlePost)
+	return r
 }
 
-func (h *Handler) HandleRequest() func(res http.ResponseWriter, req *http.Request) {
-	return func(res http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case http.MethodGet:
-			h.handleGet(res, req)
-		case http.MethodPost:
-			h.handlePost(res, req)
-		default:
-			res.Write([]byte("the service supports only GET and POST requests"))
-		}
-	}
+func NewHandler(urlService *service.URLService) *Handler {
+	return &Handler{urlService: urlService}
 }
 
 func (h *Handler) handlePost(res http.ResponseWriter, req *http.Request) {
@@ -55,16 +50,16 @@ func (h *Handler) handlePost(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte(outResult))
 }
 
-func (h *Handler) handleGet(res http.ResponseWriter, req *http.Request) {
-	keyFindUrl := req.RequestURI[1:]
-	if keyFindUrl == "" {
+func (h *Handler) getOriginalHandle(res http.ResponseWriter, req *http.Request) {
+	shortUrl := chi.URLParam(req, "shortUrl")
+	if shortUrl == "" {
 		res.Header().Set("Content-Type", "text/plain")
 		res.Write([]byte("Welcom!"))
 		return
 	}
 
-	url, err := h.urlService.GetOriginalUrl(keyFindUrl)
-	log.Printf("Get url: %s to key: %s\n", url, keyFindUrl)
+	url, err := h.urlService.GetOriginalUrl(shortUrl)
+	log.Printf("Get url: %s to key: %s\n", url, shortUrl)
 	if err != nil {
 		// некорректный id не нашли по id нужный url, вернуть 400
 		res.Header().Set("Content-Type", "text/plain")

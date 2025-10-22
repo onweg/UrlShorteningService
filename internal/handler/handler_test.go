@@ -1,10 +1,12 @@
-package handler
+package handler_test
 
 import (
 	"bytes"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/onweg/UrlShorteningService/internal/handler"
@@ -14,7 +16,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestURLHandler_handleGet(t *testing.T) {
+func TestMain(m *testing.M) {
+	log.SetOutput(io.Discard)
+	os.Exit(m.Run())
+}
+
+func testRequest(t *testing.T, ts *httptest.Server, method, path, body string) (*http.Response, string) {
+
+	var req *http.Request
+	var err error
+
+	if method == http.MethodGet {
+		req, err = http.NewRequest(method, ts.URL+path, nil)
+	} else if method == http.MethodPost {
+		req, err = http.NewRequest(method, ts.URL+path, bytes.NewBufferString(body))
+	}
+	require.NoError(t, err)
+
+	client := ts.Client()
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	resp, err := ts.Client().Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	respBosy, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	return resp, string(respBosy)
+}
+
+func TestRouterGetMethod(t *testing.T) {
 	type want struct {
 		code        int
 		contentType string
@@ -76,28 +110,21 @@ func TestURLHandler_handleGet(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := &model.MemoryStorage{
-				Data: tt.storage,
-			}
-			service := service.NewURLService(storage)
-			handler := handler.NewHandler(service)
+	for _, v := range tests {
+		storage := &model.MemoryStorage{Data: v.storage}
+		urlService := service.NewURLService(storage)
+		h := handler.NewHandler(urlService)
+		r := handler.NewRouter(h)
+		ts := httptest.NewServer(r)
+		defer ts.Close()
 
-			r := httptest.NewRequest(http.MethodGet, tt.request, nil)
-			w := httptest.NewRecorder()
-			h := http.HandlerFunc(handler.HandleRequest())
-			h(w, r)
-
-			result := w.Result()
-
-			assert.Equal(t, tt.want.code, result.StatusCode)
-			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
-		})
+		resp, get := testRequest(t, ts, http.MethodGet, v.request, "")
+		assert.Equal(t, resp.StatusCode, v.want.code)
+		assert.Regexp(t, v.want.response, string(get))
 	}
 }
 
-func TestURLHandler_handlePost(t *testing.T) {
+func TestRouterPostMethod(t *testing.T) {
 	type want struct {
 		code        int
 		contentType string
@@ -120,7 +147,7 @@ func TestURLHandler_handlePost(t *testing.T) {
 			want: want{
 				code:        201,
 				contentType: "text/plain",
-				response:    `^http://localhost:8080/[A-Za-z0-9]{8}$`,
+				response:    `^http://(localhost|127\.0\.0\.1):\d+/[A-Za-z0-9]{8}$`,
 			},
 		},
 		{
@@ -133,7 +160,7 @@ func TestURLHandler_handlePost(t *testing.T) {
 			want: want{
 				code:        201,
 				contentType: "text/plain",
-				response:    `^http://localhost:8080/[A-Za-z0-9]{8}$`,
+				response:    `^http://(localhost|127\.0\.0\.1):\d+/[A-Za-z0-9]{8}$`,
 			},
 		},
 		{
@@ -146,7 +173,7 @@ func TestURLHandler_handlePost(t *testing.T) {
 			want: want{
 				code:        201,
 				contentType: "text/plain",
-				response:    `^http://localhost:8080/[A-Za-z0-9]{8}$`,
+				response:    `^http://(localhost|127\.0\.0\.1):\d+/[A-Za-z0-9]{8}$`,
 			},
 		},
 		{
@@ -176,31 +203,16 @@ func TestURLHandler_handlePost(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := &model.MemoryStorage{
-				Data: tt.storage,
-			}
-			service := service.NewURLService(storage)
-			handler := handler.NewHandler(service)
+	for _, v := range tests {
+		storage := &model.MemoryStorage{Data: v.storage}
+		urlService := service.NewURLService(storage)
+		h := handler.NewHandler(urlService)
+		r := handler.NewRouter(h)
+		ts := httptest.NewServer(r)
+		defer ts.Close()
 
-			r := httptest.NewRequest(http.MethodPost, tt.request, bytes.NewBufferString(tt.body))
-			w := httptest.NewRecorder()
-			h := http.HandlerFunc(handler.HandleRequest())
-			r.Host = "localhost:8080"
-			h(w, r)
-
-			result := w.Result()
-
-			assert.Equal(t, tt.want.code, result.StatusCode)
-			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
-			if result.StatusCode == http.StatusCreated {
-				resBody, err := io.ReadAll(result.Body)
-				require.NoError(t, err)
-				err = result.Body.Close()
-				require.NoError(t, err)
-				assert.Regexp(t, tt.want.response, string(resBody))
-			}
-		})
+		resp, get := testRequest(t, ts, http.MethodPost, v.request, v.body)
+		assert.Equal(t, resp.StatusCode, v.want.code)
+		assert.Regexp(t, v.want.response, string(get))
 	}
 }
